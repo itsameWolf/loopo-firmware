@@ -147,6 +147,7 @@ void execute_command();
 void read_sensors();
 void check_limits();
 void check_homing();
+void update_motor_states();
 
 const int EXTENSION_LIMIT_PIN = 19;
 const int TWIST_LIMIT_PIN = 26;
@@ -270,39 +271,8 @@ bool update_callback(repeating_timer_t *rt)
 
   check_homing();
 
-  for (auto e = 0u; e < NUM_MOTORS; e++)
-  {
-    if (motor_states[e]->torque)
-    {
-      if (!motors[e]->is_enabled())
-      {
-        motors[e]->enable();
-      }
-      switch (motor_states[e]->control)
-      {
-      case NO_CONTROL:
-        motor_states[e]->drive_speed = motor_states[e]->speed_setpoint;
-        break;
-      case POSITION_CONTROL:
-        pos_pid.setpoint = motor_states[e]->position_setpoint;
-        motor_states[e]->drive_speed = pos_pid.calculate(motor_states[e]->count);
-        break;
-      case VELOCITY_CONTROL:
-        vel_pid.setpoint = motor_states[e]->velocity_setpoint;
-        float acceleration = pos_pid.calculate(motor_states[e]->delta);
-        motor_states[e]->drive_speed += acceleration;
-        break;
-      }
-      motors[e]->speed(motor_states[e]->drive_speed);
-    }
-    else
-    {
-      if (motors[e]->is_enabled())
-      {
-        motors[e]->disable();
-      }
-    }
-  }
+  update_motor_states();
+
   return true;
 }
 
@@ -564,5 +534,42 @@ void check_homing()
     loop.loop_motor_state.speed_setpoint = loop.homing_speed;
   default:
     break;
+  }
+}
+
+void update_motor_states()
+{
+  for (auto e = 0u; e < NUM_MOTORS; e++)
+  {
+    if (motor_states[e]->torque)
+    {
+      if (!motors[e]->is_enabled())
+      {
+        motors[e]->enable();
+      }
+      switch (motor_states[e]->control)
+      {
+      case NO_CONTROL:
+        motor_states[e]->drive_speed = motor_states[e]->speed_setpoint;
+        break;
+      case POSITION_CONTROL:
+        pos_pid.setpoint = motor_states[e]->position_setpoint;
+        motor_states[e]->drive_speed = pos_pid.calculate(motor_states[e]->count);
+        break;
+      case VELOCITY_CONTROL:
+        vel_pid.setpoint = motor_states[e]->velocity_setpoint;
+        float acceleration = pos_pid.calculate(motor_states[e]->delta);
+        motor_states[e]->drive_speed += acceleration;
+        break;
+      }
+      motors[e]->speed(motor_states[e]->drive_speed);
+    }
+    else
+    {
+      if (motors[e]->is_enabled())
+      {
+        motors[e]->disable();
+      }
+    }
   }
 }
