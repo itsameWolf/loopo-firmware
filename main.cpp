@@ -96,12 +96,15 @@ struct twist_actuator
   bool        right_limit_flag = 0;
   bool        left_limit_flag =0;
   bool        home_switch = 0;
-  int         homing_status = 0;
+  int         homing_status = NOT_HOMED;
   float       cable_length = 0.0f;
-  float       loop_size = 0.0f;
-  float       centre_offset = 0.0f;
+  int32_t     loop_size = 0;
+  int32_t     centre_offset = 0;
+  int32_t     loop_size_setpoint = 0;
+  int32_t     centre_offset_setpoint = 0;
   int         status = DISABLED;
   float       homing_speed = 4;
+  bool        torque = 0;
 } twist;
 
 struct loop_actuator
@@ -110,7 +113,7 @@ struct loop_actuator
   motor_state loop_motor_state;
   float force = 0.0f;
   bool  runout = 0;
-  int   homing_status = 0;
+  int   homing_status = NOT_HOMED;
   float homing_threshold = 0.05f;
   float homing_speed = 4;
 } loop;
@@ -147,6 +150,7 @@ void execute_command();
 void read_sensors();
 void check_limits();
 void check_homing();
+void check_twist_state();
 void update_motor_states();
 
 const int EXTENSION_LIMIT_PIN = 19;
@@ -571,5 +575,35 @@ void update_motor_states()
         motors[e]->disable();
       }
     }
+  }
+}
+
+void check_twist_state()
+{
+  twist.loop_size = twist.right_motor_state.count + twist.left_motor_state.count;
+  twist.centre_offset = twist.right_motor_state.count - twist.left_motor_state.count;
+  
+  twist.right_motor_state.position_setpoint = int((twist.centre_offset_setpoint + twist.loop_size_setpoint) / 2);
+  twist.left_motor_state.position_setpoint = int((twist.loop_size_setpoint - twist.centre_offset_setpoint) / 2);
+
+  if (twist.torque)
+  {
+    twist.right_motor_state.torque = 1;
+    twist.left_motor_state.torque = 1;
+    twist.right_motor_state.control = POSITION_CONTROL;
+    twist.left_motor_state.control = POSITION_CONTROL;
+  }
+  else
+  {
+    twist.right_motor_state.torque = 0;
+    twist.left_motor_state.torque = 0;
+  }
+  if (twist.right_motor_state.delta != 0 && twist.right_motor_state.delta != 0) 
+  {
+    twist.status = BUSY;
+  }   
+  else
+  {
+    twist.status = RESTING;
   }
 }
