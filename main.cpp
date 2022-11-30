@@ -535,7 +535,17 @@ void check_homing()
   case FINDING_CABLE_END:
     loop.loop_motor_state.speed_setpoint = -loop.homing_speed;
   case FINDING_HOME:
-    loop.loop_motor_state.speed_setpoint = loop.homing_speed;
+    if (loop.force <= 0.53)
+    {
+      loop.loop_motor_state.speed_setpoint = loop.homing_speed;
+    }
+    else
+    { 
+      loop.loop_motor_state.speed_setpoint = 0;
+      encoders[loop.motor_id]->zero();
+      loop.homing_status--;
+    } 
+    break;   
   default:
     break;
   }
