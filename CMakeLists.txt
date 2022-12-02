@@ -45,7 +45,11 @@ target_link_libraries(${NAME}
     pwm_cluster
     pwm
     motor_cluster
-    motor# <-- List libraries here!
+    motor
+    extension
+    loop
+    twist
+    # <-- List libraries here!
 )
 
 pico_enable_stdio_usb(${PROJECT_NAME} 1)
@@ -64,3 +68,7 @@ install(FILES
 set(CPACK_INCLUDE_TOPLEVEL_DIRECTORY OFF)
 set(CPACK_GENERATOR "ZIP" "TGZ")
 include(CPack)
+
+add_subdirectory(extension)
+add_subdirectory(loop)
+add_subdirectory(twist)
