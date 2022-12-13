@@ -6,6 +6,7 @@ using namespace encoder;
 bool update_callback(repeating_timer_t *rt);
 bool log_callback(repeating_timer_t *rt);
 bool command_callback(repeating_timer_t *rt);
+//void read_command();
 
 // Create a motor and set its direction and speed scale
 Motor ex_mot = Motor(EX_MOTOR_PINS, DIRECTION_MOTOR, SPEED_SCALE);
@@ -47,11 +48,13 @@ extension ext = extension(&ex_mot, &ex_enc, &ex_endstop, &ex_pos_pid, &ex_pos_pi
 twist tw = twist(&tr_mot, &tl_mot, &tr_enc, &tl_enc, &tr_runout, &tl_runout, &tw_endstop, &tr_pos_pid, &tr_vel_pid, &tl_pos_pid, &tl_vel_pid);
 loop lp = loop(&lp_mot, &lp_enc, &lp_ronout, &force, &lp_pos_pid, &lp_vel_pid, &lp_frc_pid);
 
-uint8_t serial_buffer[BUFFER_LENGTH];
-
 repeating_timer_t update_timer;
 repeating_timer_t log_timer;
 repeating_timer_t command_timer;
+
+uint8_t serial_buffer[BUFFER_LENGTH];
+
+bool ack_flag = 0;
 
 int main() 
 {
@@ -61,7 +64,10 @@ int main()
   add_repeating_timer_ms(LOG_RATE * 1000.0f, log_callback, NULL, &log_timer);
   add_repeating_timer_ms(LOG_RATE * 1000.0f, command_callback, NULL, &command_timer);
 
-  while(!user_sw.raw()) {}  
+  while(!user_sw.raw()) 
+  {
+    //read_command();
+  }  
 }
 
 bool update_callback(repeating_timer_t *rt)
@@ -88,21 +94,33 @@ bool log_callback(repeating_timer_t *rt)
   int lp_cnt = lp.get_control();
   float frc = lp.get_force();
 
+  absolute_time_t t = get_absolute_time();
+  uint32_t ts = to_ms_since_boot(t);
+
   #ifdef DEBUGGING
   printf("Extension\tpos: %d - sts: %d - cnt: %d\n", ex_pos, ex_sts, ex_cnt);
   printf("Twist\t\tpos: %d - off: %d -sts: %d - cnt: %d\n", tw_pos, tw_off, tw_sts, tw_cnt);
   printf("Loop\t\tpos: %d - frc: %f -sts: %d - cnt: %d\n\n", lp_pos, frc, lp_sts, lp_cnt);
   #else
-  printf("%d - %d - %d - %d - %d - %d - %d - %d - %f - %d - %d\n", ex_pos, ex_sts, ex_cnt, tw_pos, tw_off, tw_sts, tw_cnt, lp_pos, frc, lp_sts, lp_cnt);
+  printf("%d - %d - %d - %d - %d - %d - %d - %d - %f - %d - %d - %d - %d\n", ex_pos, ex_sts, ex_cnt, tw_pos, tw_off, tw_sts, tw_cnt, lp_pos, frc, lp_sts, lp_cnt, ack_flag, ts);
   #endif
+
+  if (ack_flag)
+  {
+    ack_flag = 0;
+  }
+
   return 1;
 }
 
 bool command_callback(repeating_timer_t *rt)
+//void read_command()
 {
   uint16_t end = read_line(serial_buffer);
   if (end > 1)
   {
+    ack_flag = 1;
+
     actuator_command message = interpret_buffer(serial_buffer, end);
 
     #if DEBUGGING
@@ -122,7 +140,6 @@ bool command_callback(repeating_timer_t *rt)
     default:
       break;
     }
-    
   }
   return 1;
 }

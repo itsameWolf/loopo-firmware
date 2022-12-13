@@ -71,9 +71,9 @@ constexpr float VEL_KP = 30.0f; // Velocity proportional (P) gain
 constexpr float VEL_KI = 0.0f;  // Velocity integral (I) gain
 constexpr float VEL_KD = 0.4f;  // Velocity derivative (D) gain
 
-constexpr float FRC_KP = 10.0f; // Velocity proportional (P) gain
+constexpr float FRC_KP = 2.0f; // Velocity proportional (P) gain
 constexpr float FRC_KI = 0.0f;  // Velocity integral (I) gain
-constexpr float FRC_KD = 0.4f;  // Velocity derivative (D) gain
+constexpr float FRC_KD = 0.0f;  // Velocity derivative (D) gain
 
 const int BUFFER_LENGTH = 512;
 

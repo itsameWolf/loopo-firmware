@@ -108,22 +108,27 @@ void twist::execute_command(int com, float value)
     _pos_pid_left->setpoint = (_target_size - _target_offset) / 2;
     break;
   case SET_VELOCITY:
-    //_vel_pid->setpoint = value;
+    _vel_pid_right->setpoint = value;
+    _vel_pid_left->setpoint = -value;
     break;
   case HOME:
     if (value > 0) 
     {
       value *= -1;
     }
-    _vel_pid_right->setpoint = value;
-    _vel_pid_left->setpoint = value;
-    _control_approach = VELOCITY;
-    _homing_flag = true;
+    //_vel_pid_right->setpoint = -value;
+    //_vel_pid_left->setpoint = 0;
+    _speed_right = -value;
+    _speed_left = 0;
+    _mot_right->speed(_speed_right);
+    _mot_left->speed(_speed_left);
+    _control_approach = SPEED;
+    _homing_flag = 1;
     break;
   case SET_OFFSET:
     _target_offset = value;
-    _pos_pid_right->setpoint = (_target_size + _target_offset) / 2;
-    _pos_pid_left->setpoint = (_target_size - _target_offset) / 2;
+    _pos_pid_right->setpoint = (_target_size - _target_offset) / 2;
+    _pos_pid_left->setpoint = (_target_size + _target_offset) / 2;
     break;
   default:
     break;
@@ -137,51 +142,46 @@ void twist::_homing()
     case 1:
       if (!_runout_right->raw())
       {
-        _vel_pid_right->setpoint = 0;
+        _speed_left = _speed_right;
+        _speed_right = 0;
+        _mot_right->speed(_speed_right);
+        _mot_left->speed(_speed_left);
         _cable_end_right = _cap_right.count();
+
         _homing_flag++;
-      }
-      else if (!_runout_left->raw())
-      {
-        _vel_pid_left->setpoint = 0;
-        _cable_end_left = _cap_left.count();
-        _homing_flag += 2;
       }
       break;
     case 2:
       if (!_runout_left->raw())
       {
-        _vel_pid_right->setpoint = -_vel_pid_left->setpoint;
-        _vel_pid_left->setpoint = -_vel_pid_left->setpoint;
         _cable_end_left = _cap_left.count();
-        _homing_flag += 2;
+        _speed_right = -_speed_left;
+        _speed_left = -_speed_left;
+        _mot_right->speed(_speed_right);
+        _mot_left->speed(_speed_left);
+        _homing_flag ++;
       }
       break;
     case 3:
-      if (!_runout_right->raw())
-      {
-        _vel_pid_right->setpoint = -_vel_pid_right->setpoint;
-        _vel_pid_left->setpoint = -_vel_pid_right->setpoint;
-        _cable_end_right = _cap_right.count();
-        _homing_flag++;
-      }
-      break;
-    case 4:
       if (!_endstop->raw())
       {
         _control_approach = POSITION;
         _target_offset = 0;
-        _target_size = _cap_right.count() + _cap_left.count() + 500;
+        _pos_pid_right->setpoint = _cap_right.count() + 250;
+        _pos_pid_left->setpoint = _cap_left.count() + 250;
         _homing_flag++;
       }
       break;
-    case 5:
+    case 4:
       if (_cap_right.delta() == 0 && _cap_left.delta() == 0)
       {
         _cable_length = _cable_end_right - _cap_right.count() + _cable_end_left - _cap_left.count();
         _enc_right->zero();
         _enc_left->zero();
+        _pos_pid_right->setpoint = 0;
+        _pos_pid_left->setpoint = 0;
         _target_size = 0;
+        _target_offset = 0;
         _homing_flag = 0;
       }
       break;
@@ -205,16 +205,18 @@ void twist::_update_status()
   {
     _current_status = HOMING;
   } 
-  else if (!_runout_right->raw())
+  else if (!_runout_right->raw() || !_runout_left->raw())
   {
-    _control_approach = POSITION;
-    _pos_pid_right->setpoint = _cap_right.count() - 100;
-    _current_status = LIMIT;
-  }
-  else if (!_runout_left->raw())
-  {
-    _control_approach = POSITION;
-    _pos_pid_left->setpoint = _cap_left.count() - 100;
+    if (!_runout_right->raw())
+    {
+      _control_approach = POSITION;
+      _pos_pid_right->setpoint = _cap_right.count() - 100;
+    }
+    if (!_runout_left->raw())
+    {
+      _control_approach = POSITION;
+      _pos_pid_left->setpoint = _cap_left.count() - 100;
+    }
     _current_status = LIMIT;
   }
   else if (_mot_right_is_moving && _enc_right_is_moving && _mot_left_is_moving && _enc_left_is_moving)
@@ -238,7 +240,7 @@ int32_t twist::get_size()
 
 int32_t twist::get_offset()
 {
-    return _cap_right.count() - _cap_left.count();
+    return _cap_left.count() - _cap_right.count();
 }
 
 int32_t twist::get_velocity()

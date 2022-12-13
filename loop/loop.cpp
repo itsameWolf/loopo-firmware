@@ -76,7 +76,7 @@ void loop::execute_command(int com, float value)
     }
     break;
   case CONTROL:
-    if (SPEED <= val && val <= VELOCITY)
+    if (SPEED <= val && val <= FORCE)
       {
         _control_approach = val;
       }
@@ -96,18 +96,24 @@ void loop::execute_command(int com, float value)
     {
       value *= -1;
     }
-    _vel_pid->setpoint = value;
     _control_approach = VELOCITY;
-    _homing_flag = true;
+    if (_cable_length > 0)
+    {
+      _vel_pid->setpoint = value;
+      _homing_flag = 2;
+    } 
+    else
+    {
+      _vel_pid->setpoint = -value;
+      _homing_flag = 1;
+    }
     break;
   case SET_FORCE:
     if (value > 0)
     {
       value *= -1;
     }
-    _vel_pid->setpoint = value;
-    _control_approach = VELOCITY;
-    _homing_flag = true;
+    _frc_pid->setpoint = value;
     break;
   default:
     break;
