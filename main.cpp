@@ -4,8 +4,10 @@ using namespace motor;
 using namespace encoder;
 
 bool update_callback(repeating_timer_t *rt);
-bool log_callback(repeating_timer_t *rt);
 bool command_callback(repeating_timer_t *rt);
+
+void respond();
+
 //void read_command();
 
 // Create a motor and set its direction and speed scale
@@ -49,19 +51,17 @@ twist tw = twist(&tr_mot, &tl_mot, &tr_enc, &tl_enc, &tr_runout, &tl_runout, &tw
 loop lp = loop(&lp_mot, &lp_enc, &lp_ronout, &force, &lp_pos_pid, &lp_vel_pid, &lp_frc_pid);
 
 repeating_timer_t update_timer;
-repeating_timer_t log_timer;
 repeating_timer_t command_timer;
 
 uint8_t serial_buffer[BUFFER_LENGTH];
 
-bool ack_flag = 0;
+bool cmd_flag = 0;
 
 int main() 
 {
   stdio_init_all();
 
   add_repeating_timer_ms(UPDATE_RATE * 1000.0f, update_callback, NULL, &update_timer);
-  add_repeating_timer_ms(LOG_RATE * 1000.0f, log_callback, NULL, &log_timer);
   add_repeating_timer_ms(LOG_RATE * 1000.0f, command_callback, NULL, &command_timer);
 
   while(!user_sw.raw()) 
@@ -75,10 +75,16 @@ bool update_callback(repeating_timer_t *rt)
   ext.update();
   lp.update();
   tw.update();
+
+  if (cmd_flag) {
+    respond();
+    cmd_flag = 0;
+  }
+
   return 1;
 }
 
-bool log_callback(repeating_timer_t *rt)
+void respond()
 {
   int32_t ex_pos = ext.get_position();
   int ex_sts = ext.get_status();
@@ -94,32 +100,24 @@ bool log_callback(repeating_timer_t *rt)
   int lp_cnt = lp.get_control();
   float frc = lp.get_force();
 
-  absolute_time_t t = get_absolute_time();
-  uint32_t ts = to_ms_since_boot(t);
 
   #ifdef DEBUGGING
   printf("Extension\tpos: %d - sts: %d - cnt: %d\n", ex_pos, ex_sts, ex_cnt);
   printf("Twist\t\tpos: %d - off: %d -sts: %d - cnt: %d\n", tw_pos, tw_off, tw_sts, tw_cnt);
   printf("Loop\t\tpos: %d - frc: %f -sts: %d - cnt: %d\n\n", lp_pos, frc, lp_sts, lp_cnt);
   #else
-  printf("%d - %d - %d - %d - %d - %d - %d - %d - %f - %d - %d - %d - %d\n", ex_pos, ex_sts, ex_cnt, tw_pos, tw_off, tw_sts, tw_cnt, lp_pos, frc, lp_sts, lp_cnt, ack_flag, ts);
+  printf("%d:%d:%d:%d:%d:%d:%d:%d:%f:%d:%d\n", ex_pos, ex_sts, ex_cnt, tw_pos, tw_off, tw_sts, tw_cnt, lp_pos, frc, lp_sts, lp_cnt);
   #endif
-
-  if (ack_flag)
-  {
-    ack_flag = 0;
-  }
-
-  return 1;
 }
 
 bool command_callback(repeating_timer_t *rt)
 //void read_command()
 {
   uint16_t end = read_line(serial_buffer);
-  if (end > 1)
+  if (end)
   {
-    ack_flag = 1;
+
+    cmd_flag = 1;
 
     actuator_command message = interpret_buffer(serial_buffer, end);
 
@@ -129,17 +127,18 @@ bool command_callback(repeating_timer_t *rt)
     
     switch (message.id)
     {
-    case 0:
+    case 1:
       ext.execute_command(message.command, message.value);
       break;
-    case 1:
+    case 2:
       tw.execute_command(message.command, message.value);
       break;
-    case 2:
+    case 3:
       lp.execute_command(message.command, message.value);
     default:
       break;
     }
+
   }
   return 1;
 }
