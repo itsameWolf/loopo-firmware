@@ -1,83 +1,71 @@
-# Pico C++ Boilerplate Project <!-- omit in toc -->
+# LoopO firmware
 
-This project is intended as a starting point for working with the Pico SDK and Pimoroni Libraries in C++.
+This repo contains the source code for the latest LoopO implementation.
 
-- [Before you start](#before-you-start)
-- [Preparing your build environment](#preparing-your-build-environment)
-- [Grab the Pimoroni libraries](#grab-the-pimoroni-libraries)
-- [Clone this boilerplate](#clone-this-boilerplate)
-- [Prepare Visual Studio Code](#prepare-visual-studio-code)
-- [Prepare your project](#prepare-your-project)
-- [Pick your LICENSE](#pick-your-license)
+## Hardware
 
-## Before you start
+The device is based on a pimoroni servo motor board and 4 micrometal motors with encoders. One motor is needed LoopO and the other 3 are used for LoopO-twist, alongside other sensors.
 
-It's easier if you make a `pico` directory or similar in which you keep the SDK, Pimoroni Libraries and your projects alongside each other. This makes it easier to include libraries.
+## Software
 
-## Preparing your build environment
+The code is based on the pimoroni rpi pico boilerplate. I recommend following their instrusctions to fully set up the build environment. The device communicates to the computer through serial.
 
-Install build requirements:
+### Control messages
 
-```bash
-sudo apt update
-sudo apt install cmake gcc-arm-none-eabi build-essential
-```
+Numerical codes can be sent to control the device similarly to the robotis dynamixel protocol. Each control message is formed as follows:
 
-And the Pico SDK:
+#### message syntax
 
-```
-git clone https://github.com/raspberrypi/pico-sdk
-cd pico-sdk
-git submodule update --init
-export PICO_SDK_PATH=`pwd`
-cd ../
-```
+|    ID     |  Command   |     Value     |
+|-----------|------------|---------------|
+|  1 Byte   |  1 Byte    |    4 Bytes    |
+|   char    |    char    |     float     |
 
-The `PICO_SDK_PATH` set above will only last the duration of your session.
+#### device ID
 
-You should should ensure your `PICO_SDK_PATH` environment variable is set by `~/.profile`:
+| ID | Device   |
+|----|----------|
+| 1  | extension|
+| 2  | twist    |
+| 3  | loop     |
 
-```
-export PICO_SDK_PATH="/path/to/pico-sdk"
-```
+#### Command Values
 
-## Grab the Pimoroni libraries
+| Command | Ext Action  | Twist action | Loop Action | Required value  |
+|---------|-------------|--------------|-------------|-----------------|
+|    0    | set enable  | set enable   | set enable  |      0-1        |
+|    1    | set control | set control  | set control |    0-1-2-3      |
+|    2    | set speed   | set speed    | set speed   |     float       |
+|    3    | set position| set position | set position|     float       |
+|    4    | set velocity| set velocity | set velocity|     float       |
+|    5    |    home     |     home     |     home    |     float       |
+|    6    |    none     | set force    | set offset  |     float       |
 
-```
-git clone https://github.com/pimoroni/pimoroni-pico
-```
+#### Control Approaches
 
-## Clone this boilerplate
+| Value | Approach |
+|-------|----------|
+|   0   |  Speed   |
+|   1   | position |
+|   2   | velocity |
+|   3   |  Force (only available to loop)  |
 
-```
-git clone https://github.com/pimoroni/pico-boilerplate
-cd pico-boilerplate
-```
+### Status reply
 
-If you have not or don't want to set `PICO_SDK_PATH` you can edit `.vscode/settings.json` to pass the path directly to CMake.
+After each message is received and applied a status message is sent back. A feedack message will be provide after any message sent, even malformed or empty ones, the latter is useful for logging purposes. each message is composed of 11 values separated by ":"
 
-## Prepare Visual Studio Code
+|0|1|2|3|4|5|6|7|8|9|10|
+|-|-|-|-|-|-|-|-|-|-|-|
+extension position|extension status|extension control|twist position|twist offset|twist status|twist control|loop position|loop force|loopp status|loop control|
 
-Open VS Code and hit `Ctrl+Shift+P`.
+#### Status table
 
-Type `Install` and select `Extensions: Install Extensions`.
-
-Make sure you install:
-
-1. C/C++
-2. CMake
-3. CMake Tools
-4. Cortex-Debug (optional: for debugging via a Picoprobe or Pi GPIO)
-5. Markdown All in One (recommended: for preparing your own README.md)
-
-## Prepare your project
-
-Edit `CMakeLists.txt` and follow the instructions, you should make sure you:
-
-1. edit your project name
-2. include the libraries you need
-2. link the libraries to your project
-
-## Pick your LICENSE
-
-We've included a copy of BSD 3-Clause License to match that used in Raspberry Pi's Pico SDK and Pico Examples. You should review this and check it's appropriate for your project before publishing your code.
+|value|Meaning|
+|-|-|
+|0|DISABLED|
+|1|IDLE|
+|2|HOMING|
+|3|MOVING|
+|4|LIMIT
+|5|STUCK|
+|6|GRIPPING (only for loop)|
